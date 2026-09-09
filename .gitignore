@@ -3,6 +3,7 @@ build/
 build_desktop/
 dist/
 dist_desktop/
+dist_installer/
 *.spec.bak
 
 # Python
