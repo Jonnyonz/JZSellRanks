@@ -1,0 +1,14 @@
+# Builds de PyInstaller (se regeneran, no se versionan)
+build/
+build_desktop/
+dist/
+dist_desktop/
+*.spec.bak
+
+# Python
+__pycache__/
+*.pyc
+
+# Datos locales de usuario (viven en %APPDATA%, no en el proyecto)
+historial_rankings.csv
+datos_acumulados.csv
