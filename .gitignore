@@ -12,3 +12,6 @@ __pycache__/
 # Datos locales de usuario (viven en %APPDATA%, no en el proyecto)
 historial_rankings.csv
 datos_acumulados.csv
+
+# Datos sensibles del negocio (nombres reales de vendedores/sucursales)
+reglas_parametrizacion.csv
