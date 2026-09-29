@@ -235,7 +235,7 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
-    ws_graficos = wb.create_sheet("📈 Análisis")
+    ws_graficos = wb.create_sheet("Análisis")
     ws_graficos.sheet_view.showGridLines = False
     ws_data = wb.create_sheet("Data_Oculta")
     ws_data.sheet_state = 'hidden'

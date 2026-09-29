@@ -17,8 +17,8 @@ No hace falta instalar Python ni ninguna otra dependencia: el instalador ya trae
 
 ### Primer uso
 
-- En la pestaña **⚙️ Reglas y Razones Sociales** armá o ajustá tus reglas (podés tener varios "perfiles" según el tipo de reporte).
-- En la pestaña **📊 Ejecutar Reporte** seleccioná el Excel del ERP (`.xlsx`) y generá el reporte.
+- En la pestaña **Reglas y Razones Sociales** armá o ajustá tus reglas (podés tener varios "perfiles" según el tipo de reporte).
+- En la pestaña **Ejecutar Reporte** seleccioná el Excel del ERP (`.xlsx`) y generá el reporte.
 - Tus perfiles de reglas y el histórico acumulado se guardan en `%APPDATA%\RankingVentas`, independientemente de dónde esté instalado el programa.
 
 ## Para desarrolladores
@@ -30,7 +30,7 @@ Requiere Python 3.11+.
 ```powershell
 git clone https://github.com/Jonnyonz/JZSellRanks.git
 cd JZSellRanks
-pip install pandas openpyxl
+pip install -r requirements.txt
 python desktop_app.py
 ```
 
@@ -61,8 +61,8 @@ gh release create vX.X.X dist_installer\RankingVentas_Setup_X.X.X.exe --title "v
 
 - `core.py` — lógica de negocio (lectura del Excel, reglas, histórico acumulado, generación del Excel de salida).
 - `desktop_app.py` — interfaz de escritorio (Tkinter).
+- `requirements.txt` — dependencias de ejecución (pandas, openpyxl).
 - `installer/setup.iss` — script de Inno Setup para generar el instalador.
-- `app.py`, `run.py`, `run.spec` — versión web original (Streamlit), se mantiene solo de referencia.
 
 ## Licencia
 
