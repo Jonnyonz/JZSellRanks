@@ -3,7 +3,7 @@
 ; Requiere que antes exista dist_desktop\RankingVentas.exe (ver README para el comando de PyInstaller).
 
 #define MyAppName "Ranking de Ventas"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Bazar Chef"
 #define MyAppExeName "RankingVentas.exe"
 
