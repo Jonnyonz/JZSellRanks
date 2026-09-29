@@ -148,6 +148,15 @@ def reiniciar_acumulado(archivo_acumulado):
         os.remove(archivo_acumulado)
 
 
+# Anti-inyección de fórmulas en Excel: un texto de los datos (Razón Social, Sucursal) que
+# empiece con = + - @ o un control se interpretaría como fórmula al abrir el archivo. Se le
+# antepone una comilla simple para que Excel lo trate como texto literal.
+def celda_segura(v):
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r", "\n"):
+        return "'" + v
+    return v
+
+
 def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.csv", log=print):
     """Procesa el Excel del ERP, lo suma al histórico acumulado, y devuelve (workbook, nombre_archivo_sugerido)
     con TODOS los meses acumulados hasta la fecha (no solo los del archivo recién subido)."""
@@ -226,7 +235,7 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
-    ws_graficos = wb.create_sheet("📈 Análisis")
+    ws_graficos = wb.create_sheet("Análisis")
     ws_graficos.sheet_view.showGridLines = False
     ws_data = wb.create_sheet("Data_Oculta")
     ws_data.sheet_state = 'hidden'
@@ -236,9 +245,9 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
     df_loc_mes = acumulado.groupby(['Mes_Format', 'Sucursal'])[COL_TOTAL].sum().unstack().fillna(0)
 
     df_charts = df_tot_mes.set_index('Mes_Format').drop(columns=['Mes_Año']).join(df_rs_mes).join(df_loc_mes).reset_index()
-    ws_data.append(df_charts.columns.tolist())
+    ws_data.append([celda_segura(x) for x in df_charts.columns.tolist()])
     for _, r in df_charts.iterrows():
-        ws_data.append(r.tolist())
+        ws_data.append([celda_segura(x) for x in r.tolist()])
 
     def dibujar_grafico(titulo, min_col, max_col, dest_cell, tipo="clustered", tendencia_unica=False):
         if max_col < min_col:
@@ -327,8 +336,8 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
 
             ws_mes.cell(row=rn, column=2, value=r['Rank Actual']).alignment = C_AL
             ws_mes.cell(row=rn, column=3, value=r['Rank Anterior']).alignment = C_AL
-            ws_mes.cell(row=rn, column=4, value=str(r['Razón Social']).split()[0] if str(r['Razón Social']) != 'nan' else 'N/A').alignment = C_AL
-            ws_mes.cell(row=rn, column=5, value=r['Sucursal']).alignment = L_AL
+            ws_mes.cell(row=rn, column=4, value=celda_segura(str(r['Razón Social']).split()[0] if str(r['Razón Social']) != 'nan' else 'N/A')).alignment = C_AL
+            ws_mes.cell(row=rn, column=5, value=celda_segura(r['Sucursal'])).alignment = L_AL
 
             for i, v in enumerate([r[COL_SUBTOTAL], r[COL_IVA], r[COL_TOTAL]]):
                 ws_mes.cell(row=rn, column=6 + (i * 2), value="ARS").alignment = L_AL
@@ -365,7 +374,7 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
         rn += 1
         for _, r in rk_empresas.iterrows():
             ws_mes.merge_cells(start_row=rn, start_column=4, end_row=rn, end_column=5)
-            ws_mes.cell(row=rn, column=4, value=r['Razón Social']).alignment = C_AL
+            ws_mes.cell(row=rn, column=4, value=celda_segura(r['Razón Social'])).alignment = C_AL
             for i, v in enumerate([r[COL_SUBTOTAL], r[COL_IVA], r[COL_TOTAL]]):
                 ws_mes.cell(row=rn, column=6 + (i * 2), value="ARS").alignment = L_AL
                 cx = ws_mes.cell(row=rn, column=7 + (i * 2), value=v)

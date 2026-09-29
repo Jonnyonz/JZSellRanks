@@ -66,7 +66,7 @@ class FilaRegla(ttk.Frame):
             values=self.tab_reglas.opciones_razon_social_destino())
         self.combo_nueva_rs.grid(row=0, column=4, padx=2, pady=1, sticky="ew")
 
-        ttk.Button(self, text="🗑", width=3, command=lambda: on_delete(self)).grid(row=0, column=5, padx=2, pady=1)
+        ttk.Button(self, text="X", width=3, command=lambda: on_delete(self)).grid(row=0, column=5, padx=2, pady=1)
 
     def a_dict(self):
         return {
@@ -95,9 +95,9 @@ class TabReglas(ttk.Frame):
         self.combo_perfil = ttk.Combobox(barra_perfil, textvariable=self.var_perfil, state="readonly", width=25)
         self.combo_perfil.pack(side="left", padx=6)
         self.combo_perfil.bind("<<ComboboxSelected>>", self.al_cambiar_perfil)
-        ttk.Button(barra_perfil, text="➕ Nuevo", command=self.nuevo_perfil).pack(side="left", padx=2)
-        ttk.Button(barra_perfil, text="📋 Guardar como...", command=self.guardar_como).pack(side="left", padx=2)
-        ttk.Button(barra_perfil, text="🗑 Eliminar perfil", command=self.eliminar_perfil_actual).pack(side="left", padx=2)
+        ttk.Button(barra_perfil, text="Nuevo", command=self.nuevo_perfil).pack(side="left", padx=2)
+        ttk.Button(barra_perfil, text="Guardar como...", command=self.guardar_como).pack(side="left", padx=2)
+        ttk.Button(barra_perfil, text="Eliminar perfil", command=self.eliminar_perfil_actual).pack(side="left", padx=2)
 
         ttk.Label(
             self,
@@ -130,7 +130,7 @@ class TabReglas(ttk.Frame):
         botones = ttk.Frame(self)
         botones.pack(fill="x", padx=10, pady=6)
         ttk.Button(botones, text="+ Agregar fila", command=self.agregar_fila_vacia).pack(side="left")
-        ttk.Button(botones, text="💾 Guardar cambios en este perfil", command=self.guardar).pack(side="left", padx=8)
+        ttk.Button(botones, text="Guardar cambios en este perfil", command=self.guardar).pack(side="left", padx=8)
         self.lbl_estado = ttk.Label(botones, text="")
         self.lbl_estado.pack(side="left", padx=8)
 
@@ -228,7 +228,7 @@ class TabReglas(ttk.Frame):
         import pandas as pd
         core.guardar_perfil(self.perfiles_dir, nombre, pd.DataFrame(columns=core.COLUMNAS_CSV_REGLAS))
         self.cargar_lista_perfiles(seleccionar=nombre)
-        self.lbl_estado.config(text=f"✅ Perfil '{nombre}' creado")
+        self.lbl_estado.config(text=f"Perfil '{nombre}' creado")
         self.after(3000, lambda: self.lbl_estado.config(text=""))
 
     def guardar_como(self):
@@ -245,7 +245,7 @@ class TabReglas(ttk.Frame):
             return
         core.guardar_perfil(self.perfiles_dir, nombre, self.obtener_dataframe())
         self.cargar_lista_perfiles(seleccionar=nombre)
-        self.lbl_estado.config(text=f"✅ Guardado como '{nombre}'")
+        self.lbl_estado.config(text=f"Guardado como '{nombre}'")
         self.after(3000, lambda: self.lbl_estado.config(text=""))
 
     def eliminar_perfil_actual(self):
@@ -262,7 +262,7 @@ class TabReglas(ttk.Frame):
     def guardar(self):
         df = self.obtener_dataframe()
         core.guardar_perfil(self.perfiles_dir, self.perfil_actual, df)
-        self.lbl_estado.config(text=f"✅ Cambios guardados en '{self.perfil_actual}'")
+        self.lbl_estado.config(text=f"Cambios guardados en '{self.perfil_actual}'")
         self.after(3000, lambda: self.lbl_estado.config(text=""))
 
 
@@ -283,10 +283,10 @@ class TabReporte(ttk.Frame):
 
         frame_sel = ttk.Frame(self)
         frame_sel.pack(fill="x", padx=10, pady=6)
-        ttk.Button(frame_sel, text="📂 Seleccionar Excel del ERP (.xlsx)", command=self.seleccionar_archivo).pack(side="left")
+        ttk.Button(frame_sel, text="Seleccionar Excel del ERP (.xlsx)", command=self.seleccionar_archivo).pack(side="left")
         self.lbl_archivo = ttk.Label(frame_sel, text="Ningún archivo seleccionado")
         self.lbl_archivo.pack(side="left", padx=10)
-        ttk.Button(frame_sel, text="🗑 Reiniciar histórico acumulado", command=self.reiniciar_acumulado).pack(side="right")
+        ttk.Button(frame_sel, text="Reiniciar histórico acumulado", command=self.reiniciar_acumulado).pack(side="right")
 
         self.lbl_deteccion = ttk.Label(self, text="")
         self.lbl_deteccion.pack(anchor="w", padx=10)
@@ -318,21 +318,21 @@ class TabReporte(ttk.Frame):
             self.ruta_excel = ruta
             self.lbl_archivo.config(text=os.path.basename(ruta))
             self.btn_generar.config(state="normal")
-            self.lbl_deteccion.config(text="🔍 Detectando valores para autocompletar reglas...")
+            self.lbl_deteccion.config(text="Detectando valores para autocompletar reglas...")
             threading.Thread(target=self._detectar_en_hilo, args=(ruta,), daemon=True).start()
 
     def _detectar_en_hilo(self, ruta):
         try:
             valores = core.detectar_valores(ruta)
         except Exception as e:
-            self.after(0, lambda: self.lbl_deteccion.config(text=f"⚠ No se pudieron autodetectar valores: {e}"))
+            self.after(0, lambda: self.lbl_deteccion.config(text=f"No se pudieron autodetectar valores: {e}"))
             return
         self.after(0, lambda: self._aplicar_deteccion(valores))
 
     def _aplicar_deteccion(self, valores):
         self.tab_reglas.set_valores_detectados(valores)
         resumen = ", ".join(f"{k}: {len(v)}" for k, v in valores.items())
-        self.lbl_deteccion.config(text=f"✅ Autocompletado listo ({resumen})")
+        self.lbl_deteccion.config(text=f"Autocompletado listo ({resumen})")
 
     def generar(self):
         if not self.ruta_excel:
@@ -353,7 +353,7 @@ class TabReporte(ttk.Frame):
             self.after(0, lambda: self._guardar_resultado(wb, nombre_sugerido))
         except Exception as e:
             detalle = traceback.format_exc()
-            self.log(f"❌ Error: {e}")
+            self.log(f"Error: {e}")
             self.log(detalle)
             self.after(0, self._finalizar)
             self.after(0, lambda: messagebox.showerror("Error procesando el archivo", str(e)))
@@ -368,7 +368,7 @@ class TabReporte(ttk.Frame):
         )
         if ruta_salida:
             wb.save(ruta_salida)
-            self.log(f"📥 Reporte guardado en: {ruta_salida}")
+            self.log(f"Reporte guardado en: {ruta_salida}")
             messagebox.showinfo("Listo", f"Reporte generado correctamente:\n{ruta_salida}")
         else:
             self.log("Guardado cancelado por el usuario.")
@@ -406,8 +406,8 @@ def main():
     tab_reglas = TabReglas(notebook, DATOS_DIR, ARCHIVO_REGLAS_LEGACY)
     tab_reporte = TabReporte(notebook, tab_reglas)
 
-    notebook.add(tab_reporte, text="📊 Ejecutar Reporte")
-    notebook.add(tab_reglas, text="⚙️ Reglas y Razones Sociales")
+    notebook.add(tab_reporte, text="Ejecutar Reporte")
+    notebook.add(tab_reglas, text="Reglas y Razones Sociales")
 
     root.mainloop()
 
