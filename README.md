@@ -189,8 +189,8 @@ gh release create vX.Y.Z dist_installer\RankingVentas_Setup_X.Y.Z.exe --title "v
 
 ## Contribuir y licencia
 
-Las contribuciones son bienvenidas. Cada commit tiene que llevar `Signed-off-by`
+Las contribuciones son bienvenidas: ver `CONTRIBUTING.md`. Cada commit tiene que llevar `Signed-off-by`
 (`git commit -s`, Developer Certificate of Origin) y ser un único cambio probado. Sin emojis en
 la interfaz.
 
-Licencia: ver el archivo `LICENSE`.
+Licencia: **AGPLv3** (GNU Affero General Public License v3). Ver `LICENSE`. Si ofrecés una versión modificada como servicio en red, tenés que publicar su código fuente.
