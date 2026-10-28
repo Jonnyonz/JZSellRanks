@@ -16,3 +16,5 @@ datos_acumulados.csv
 
 # Datos sensibles del negocio (nombres reales de vendedores/sucursales)
 reglas_parametrizacion.csv
+graphify-out/
+.serena/
