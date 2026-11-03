@@ -1,6 +1,6 @@
 """
-Ranking de Ventas - App de escritorio (Tkinter)
-Reemplaza la versión web (Streamlit) por una ventana nativa, sin navegador ni servidor local.
+Ranking de Ventas - App de escritorio (Tkinter): ventana nativa, sin navegador ni servidor local.
+La lógica está en core.py; acá solo viven las pestañas, los hilos y los cuadros de diálogo.
 """
 import os
 import sys
@@ -410,12 +410,10 @@ def main():
     root.title("Ranking de Ventas")
     root.geometry("950x680")
 
-    try:
-        style = ttk.Style()
-        if "vista" in style.theme_names():
-            style.theme_use("vista")
-    except Exception:
-        pass
+    # Tema nativo de Windows si existe; en otros sistemas queda el tema por defecto de ttk.
+    style = ttk.Style()
+    if "vista" in style.theme_names():
+        style.theme_use("vista")
 
     notebook = ttk.Notebook(root)
     notebook.pack(fill="both", expand=True)

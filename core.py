@@ -1,6 +1,6 @@
 """
-Lógica de negocio del generador de reportes de ventas.
-Compartida entre la versión de escritorio (Tkinter) y, si hiciera falta, la web (Streamlit).
+Lógica de negocio del generador de reportes de ventas (lectura del Excel, reglas, perfiles,
+histórico y armado del reporte). No depende de la interfaz: desktop_app.py la usa desde Tkinter.
 """
 import os
 import pandas as pd
@@ -91,7 +91,8 @@ def listar_perfiles(perfiles_base_dir, archivo_legacy=None):
     carpeta = carpeta_perfiles(perfiles_base_dir)
     nombres = sorted(f[:-4] for f in os.listdir(carpeta) if f.lower().endswith(".csv"))
     if not nombres:
-        # Primer uso: migra el CSV de la versión web si existe, o arranca con un perfil de ejemplo.
+        # Primer uso: migra el reglas_parametrizacion.csv de versiones viejas si está junto al
+        # programa, o arranca con un perfil de ejemplo.
         if archivo_legacy and os.path.exists(archivo_legacy):
             df_inicial = cargar_reglas(archivo_legacy)
         else:
@@ -115,10 +116,17 @@ def eliminar_perfil(perfiles_base_dir, nombre):
         os.remove(ruta)
 
 
+_NOMBRES_RESERVADOS_WINDOWS = {'CON', 'PRN', 'AUX', 'NUL'} | {f'COM{i}' for i in range(1, 10)} | {f'LPT{i}' for i in range(1, 10)}
+
+
 def nombre_perfil_valido(nombre):
+    """El nombre se usa como nombre de archivo (<perfil>.csv): sin caracteres prohibidos, sin
+    terminar en punto o espacio y sin los nombres reservados de Windows (CON, NUL, COM1...)."""
     if not nombre or not nombre.strip():
         return False
-    return not any(c in nombre for c in r'\/:*?"<>|')
+    if any(c in nombre for c in r'\/:*?"<>|') or nombre[-1] in '. ':
+        return False
+    return nombre.split('.')[0].upper() not in _NOMBRES_RESERVADOS_WINDOWS
 
 
 def detectar_valores(ruta_excel):
