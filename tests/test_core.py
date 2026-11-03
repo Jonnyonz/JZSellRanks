@@ -115,6 +115,12 @@ class TestCore(unittest.TestCase):
         self.assertEqual(acumulado['Sucursal'].tolist(), ['CENTRO'])
         self.assertEqual(acumulado['Razón Social'].tolist(), ['Alfa SRL'])
 
+    def test_nombre_perfil_valido(self):
+        for ok in ['Default', 'Mayoristas 2026', 'con.sucursales', 'nul_pass']:
+            self.assertTrue(core.nombre_perfil_valido(ok), ok)
+        for malo in ['', '  ', 'a/b', 'a:b', 'CON', 'con', 'Nul.csv', 'COM1', 'lpt9', 'final.', 'final ']:
+            self.assertFalse(core.nombre_perfil_valido(malo), malo)
+
     def test_todo_excluido_avisa_en_vez_de_reventar(self):
         df_reglas = reglas(['', 'Vendedor', 'Vendedor A', 'EXCLUIR', ''])
         with self.assertRaises(ValueError):
