@@ -113,6 +113,7 @@ JZSellRanks/
 ├── requirements.txt      # pandas y openpyxl, fijados
 ├── RankingVentas.spec    # Configuración de PyInstaller
 ├── installer/setup.iss   # Script de Inno Setup
+├── installer/hacer_icono.py  # Genera installer/icono.ico e icono.png (solo stdlib)
 └── tests/test_core.py    # Pruebas de core con un Excel sintético
 ```
 
