@@ -108,7 +108,7 @@ class TabReglas(ttk.Frame):
 
         header = ttk.Frame(self)
         header.pack(fill="x", padx=10)
-        titulos = ["Sucursal Origen", "Buscar en", "Texto Exacto", "Nueva Sucursal", "Nueva Razón Social", ""]
+        titulos = ["Sucursal Origen", "Buscar en", "Contiene el texto", "Nueva Sucursal", "Nueva Razón Social", ""]
         anchos = [16, 28, 22, 18, 18, 3]
         for i, (t, a) in enumerate(zip(titulos, anchos)):
             ttk.Label(header, text=t, width=a, font=("Segoe UI", 9, "bold")).grid(row=0, column=i, padx=2)
