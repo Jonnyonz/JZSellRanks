@@ -344,11 +344,12 @@ class TabReporte(ttk.Frame):
         self.txt_log.config(state="normal")
         self.txt_log.delete("1.0", "end")
         self.txt_log.config(state="disabled")
-        threading.Thread(target=self._generar_en_hilo, daemon=True).start()
+        # Las variables Tk se leen acá, en el hilo principal; el hilo de trabajo recibe el DataFrame.
+        df_reglas = self.tab_reglas.obtener_dataframe()
+        threading.Thread(target=self._generar_en_hilo, args=(df_reglas,), daemon=True).start()
 
-    def _generar_en_hilo(self):
+    def _generar_en_hilo(self, df_reglas):
         try:
-            df_reglas = self.tab_reglas.obtener_dataframe()
             wb, nombre_sugerido, acumulado = core.generar_reporte(
                 self.ruta_excel, df_reglas, archivo_acumulado=ARCHIVO_ACUMULADO, log=self.log
             )
