@@ -16,7 +16,14 @@ import core  # noqa: E402
 ENCABEZADOS = [
     'Sucursal', 'Código Fecha Documento', 'Total Total', 'Neto Gravado Neto Gravado', 'IVA IVA',
     'Razon Social Empresa - Division', 'Vendedor', 'Usuario Creador', 'Localidad Documento',
+    'Dirección Tipo', 'CUIT',
 ]
+
+
+def cliente(nombre, cuit=20123456789, codigo='CLI00001'):
+    """Fila de cliente del export del ERP: sin sucursal; razón social, código y CUIT en las columnas
+    compartidas (Razon Social / Código / CUIT). Los comprobantes que siguen son de este cliente."""
+    return [None, codigo, 1000.0, 826.45, 173.55, ' ' + nombre, None, None, 'Ciudad', 'Calle 123', cuit]
 
 
 def escribir_excel(ruta, filas):
@@ -31,8 +38,18 @@ def escribir_excel(ruta, filas):
     wb.save(ruta)
 
 
-def fila(sucursal, rs, total=121.0, fecha='2026-08-15', vendedor='Vendedor A', usuario='usuario.a', localidad='00001-Loc'):
-    return [sucursal, fecha, total, round(total / 1.21, 2), round(total - total / 1.21, 2), rs, vendedor, usuario, localidad]
+_contador = [0]
+
+
+def fila(sucursal, rs, total=121.0, fecha='2026-08-15', vendedor='Vendedor A', usuario='usuario.a',
+         documento=None, tipo='FCV'):
+    """Fila de comprobante. 'Localidad Documento' lleva el número (letra + punto - número) y
+    'Dirección Tipo' el tipo (FCV factura, NCV nota de crédito)."""
+    if documento is None:
+        _contador[0] += 1
+        documento = f'A00001-{_contador[0]:08d}'
+    return [sucursal, fecha, total, round(total / 1.21, 2), round(total - total / 1.21, 2), rs, vendedor, usuario,
+            documento, tipo, None]
 
 
 def reglas(*filas):
@@ -48,11 +65,70 @@ class TestCore(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def generar(self, filas, df_reglas=None):
+    def generar(self, filas, df_reglas=None, archivo_exclusiones=None):
         escribir_excel(self.excel, filas)
         if df_reglas is None:
             df_reglas = reglas()
-        return core.generar_reporte(self.excel, df_reglas, archivo_acumulado=self.acumulado, log=lambda *_: None)
+        return core.generar_reporte(self.excel, df_reglas, archivo_acumulado=self.acumulado, log=lambda *_: None,
+                                    archivo_exclusiones=archivo_exclusiones)
+
+    def test_leer_erp_copia_el_cliente_y_desarma_el_documento(self):
+        escribir_excel(self.excel, [
+            cliente('Cliente Uno SA', cuit=20111111111),
+            fila('CENTRO', 'Alfa SRL - Empresa', documento='A00005-00012345'),
+            fila('CENTRO', 'Alfa SRL - Empresa', documento='B00005-00000007', tipo='NCV', total=-50),
+            cliente('Cliente Dos SRL', cuit=27222222222),
+            fila('NORTE', 'Alfa SRL - Empresa', documento='A00012-00000001'),
+        ])
+        docs = core.leer_erp(self.excel)
+        self.assertEqual(len(docs), 3, 'solo filas de comprobante')
+        self.assertEqual(docs['Cliente'].tolist(), ['Cliente Uno SA', 'Cliente Uno SA', 'Cliente Dos SRL'])
+        self.assertEqual(docs['CUIT Cliente'].tolist(), ['20111111111', '20111111111', '27222222222'])
+        self.assertEqual(docs['Tipo'].tolist(), ['FCV', 'NCV', 'FCV'])
+        self.assertEqual(docs['Punto'].tolist(), ['00005', '00005', '00012'])
+        self.assertEqual(docs['Número'].tolist(), ['00012345', '00000007', '00000001'])
+        self.assertEqual(docs['Clave'].iloc[0], 'FCV|A00005-00012345')
+
+    def test_buscar_documentos(self):
+        escribir_excel(self.excel, [
+            cliente('Cliente Uno SA'), fila('CENTRO', 'Alfa SRL - Empresa', documento='A00005-00012345'),
+            fila('CENTRO', 'Alfa SRL - Empresa', documento='B00005-00000007', tipo='NCV'),
+            cliente('Otro Cliente SRL'), fila('NORTE', 'Alfa SRL - Empresa', documento='A00012-00000001'),
+        ])
+        docs = core.leer_erp(self.excel)
+        self.assertEqual(len(core.buscar_documentos(docs, cliente='cliente uno')), 2)
+        self.assertEqual(len(core.buscar_documentos(docs, cliente='cliente')), 3, 'contiene, sin mayúsculas')
+        self.assertEqual(core.buscar_documentos(docs, punto='5', numero='7')['Documento'].tolist(), ['B00005-00000007'])
+        self.assertEqual(core.buscar_documentos(docs, punto='00012')['Documento'].tolist(), ['A00012-00000001'])
+        self.assertEqual(len(core.buscar_documentos(docs, tipo='NCV')), 1)
+        self.assertEqual(len(core.buscar_documentos(docs)), 3, 'sin filtros devuelve todo')
+
+    def test_exclusiones_se_aplican_y_quedan_en_hoja_excluidas(self):
+        archivo_ex = os.path.join(self.tmp.name, 'facturas_excluidas.csv')
+        filas = [
+            cliente('Cliente Uno SA'),
+            fila('CENTRO', 'Alfa SRL - Empresa', documento='A00005-00012345', total=1000),
+            fila('CENTRO', 'Alfa SRL - Empresa', documento='A00005-00012346', total=100),
+        ]
+        escribir_excel(self.excel, filas)
+        docs = core.leer_erp(self.excel)
+        excl = core.filas_a_exclusiones(core.buscar_documentos(docs, numero='12345'), motivo='Cliente en disputa')
+        self.assertEqual(excl['Clave'].tolist(), ['FCV|A00005-00012345'])
+        core.guardar_exclusiones(excl, archivo_ex)
+        self.assertEqual(core.cargar_exclusiones(archivo_ex)['Motivo'].tolist(), ['Cliente en disputa'])
+
+        wb, _, acumulado = self.generar(filas, archivo_exclusiones=archivo_ex)
+        self.assertAlmostEqual(acumulado[core.COL_TOTAL].sum(), 100, msg='la factura excluida no suma')
+        self.assertIn('Excluidas', wb.sheetnames)
+        ws = wb['Excluidas']
+        self.assertEqual([c.value for c in ws[2]][:2], ['Tipo', 'Documento'])
+        self.assertEqual(ws.cell(row=3, column=2).value, 'A00005-00012345')
+        self.assertEqual(ws.cell(row=3, column=7).value, 'Cliente en disputa')
+
+        # Sin exclusiones no hay hoja ni filtro.
+        wb2, _, acumulado2 = self.generar(filas, archivo_exclusiones=os.path.join(self.tmp.name, 'no_existe.csv'))
+        self.assertAlmostEqual(acumulado2[core.COL_TOTAL].sum(), 1100)
+        self.assertNotIn('Excluidas', wb2.sheetnames)
 
     def test_historico_no_se_escribe_hasta_guardar_acumulado(self):
         wb, nombre, acumulado = self.generar([fila('CENTRO', 'Alfa SRL - Empresa')])

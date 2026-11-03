@@ -9,6 +9,8 @@ import traceback
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 
+import pandas as pd
+
 import core
 
 if getattr(sys, 'frozen', False):
@@ -27,6 +29,7 @@ _CANDIDATOS_REGLAS_LEGACY = [
 ]
 ARCHIVO_REGLAS_LEGACY = next((p for p in _CANDIDATOS_REGLAS_LEGACY if os.path.exists(p)), _CANDIDATOS_REGLAS_LEGACY[0])
 ARCHIVO_ACUMULADO = os.path.join(DATOS_DIR, "datos_acumulados.csv")
+ARCHIVO_EXCLUSIONES = os.path.join(DATOS_DIR, "facturas_excluidas.csv")
 
 
 class FilaRegla(ttk.Frame):
@@ -266,10 +269,174 @@ class TabReglas(ttk.Frame):
         self.after(3000, lambda: self.lbl_estado.config(text=""))
 
 
+class TabExclusiones(ttk.Frame):
+    """Buscar comprobantes del Excel cargado y marcarlos como excluidos del reporte (persisten en
+    facturas_excluidas.csv). No lista nada hasta que se busca."""
+
+    COLS_RESULTADO = ("Tipo", "Documento", "Fecha", "Cliente", "Sucursal", "Total")
+    COLS_EXCLUIDAS = ("Tipo", "Documento", "Fecha", "Cliente", "Sucursal", "Total", "Motivo", "Excluida el")
+    ANCHOS = {"Tipo": 50, "Documento": 130, "Fecha": 90, "Cliente": 260, "Sucursal": 150, "Total": 110,
+              "Motivo": 220, "Excluida el": 90}
+
+    def __init__(self, master, archivo_exclusiones):
+        super().__init__(master)
+        self.archivo_exclusiones = archivo_exclusiones
+        self.docs = None
+        self.exclusiones = core.cargar_exclusiones(archivo_exclusiones)
+
+        ttk.Label(self, text="Excluir facturas del reporte", font=("Segoe UI", 14, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
+        ttk.Label(
+            self,
+            text="Buscá los comprobantes del Excel cargado por cliente (razón social), punto de venta, número o "
+                 "tipo, seleccioná los que no van y apretá Excluir. Las exclusiones quedan guardadas y se aplican "
+                 "cada vez que generás el reporte, aunque vuelvas a procesar el mismo mes.",
+            wraplength=900
+        ).pack(anchor="w", padx=10)
+
+        # --- FILTROS ---
+        filtros = ttk.Frame(self)
+        filtros.pack(fill="x", padx=10, pady=(8, 2))
+        self.var_cliente, self.var_punto, self.var_numero, self.var_tipo = (tk.StringVar() for _ in range(4))
+        ttk.Label(filtros, text="Cliente (razón social)").grid(row=0, column=0, sticky="w", padx=2)
+        self.combo_cliente = ttk.Combobox(filtros, textvariable=self.var_cliente, width=40)
+        self.combo_cliente.grid(row=1, column=0, padx=2, sticky="ew")
+        ttk.Label(filtros, text="Punto de venta").grid(row=0, column=1, sticky="w", padx=2)
+        ttk.Entry(filtros, textvariable=self.var_punto, width=10).grid(row=1, column=1, padx=2)
+        ttk.Label(filtros, text="Número").grid(row=0, column=2, sticky="w", padx=2)
+        ttk.Entry(filtros, textvariable=self.var_numero, width=12).grid(row=1, column=2, padx=2)
+        ttk.Label(filtros, text="Tipo").grid(row=0, column=3, sticky="w", padx=2)
+        self.combo_tipo = ttk.Combobox(filtros, textvariable=self.var_tipo, width=8, state="readonly", values=[""])
+        self.combo_tipo.grid(row=1, column=3, padx=2)
+        self.btn_buscar = ttk.Button(filtros, text="Buscar", command=self.buscar, state="disabled")
+        self.btn_buscar.grid(row=1, column=4, padx=(8, 2))
+        ttk.Button(filtros, text="Limpiar", command=self.limpiar_filtros).grid(row=1, column=5, padx=2)
+        self.combo_cliente.bind("<Return>", lambda e: self.buscar())
+        self.lbl_estado = ttk.Label(self, text="Primero elegí el Excel del ERP en la pestaña Ejecutar Reporte.")
+        self.lbl_estado.pack(anchor="w", padx=10, pady=(2, 0))
+
+        # --- RESULTADOS ---
+        self.tabla = self._crear_tabla(self, self.COLS_RESULTADO, alto=9)
+        acciones = ttk.Frame(self)
+        acciones.pack(fill="x", padx=10, pady=(2, 8))
+        ttk.Button(acciones, text="Excluir seleccionadas", command=lambda: self.excluir(solo_seleccion=True)).pack(side="left")
+        ttk.Button(acciones, text="Excluir todas las listadas", command=lambda: self.excluir(solo_seleccion=False)).pack(side="left", padx=6)
+
+        # --- EXCLUIDAS ---
+        barra_ex = ttk.Frame(self)
+        barra_ex.pack(fill="x", padx=10)
+        ttk.Label(barra_ex, text="Facturas excluidas", font=("Segoe UI", 10, "bold")).pack(side="left")
+        self.lbl_cant_excluidas = ttk.Label(barra_ex, text="")
+        self.lbl_cant_excluidas.pack(side="left", padx=8)
+        ttk.Label(barra_ex, text="Filtrar:").pack(side="left", padx=(16, 2))
+        self.var_filtro_ex = tk.StringVar()
+        ent = ttk.Entry(barra_ex, textvariable=self.var_filtro_ex, width=30)
+        ent.pack(side="left")
+        ent.bind("<KeyRelease>", lambda e: self.refrescar_excluidas())
+        ttk.Button(barra_ex, text="Restaurar seleccionadas", command=self.restaurar).pack(side="right")
+        self.tabla_ex = self._crear_tabla(self, self.COLS_EXCLUIDAS, alto=7)
+        self.refrescar_excluidas()
+
+    def _crear_tabla(self, master, columnas, alto):
+        marco = ttk.Frame(master)
+        marco.pack(fill="both", expand=True, padx=10, pady=(4, 0))
+        tabla = ttk.Treeview(marco, columns=columnas, show="headings", height=alto, selectmode="extended")
+        for c in columnas:
+            tabla.heading(c, text=c)
+            tabla.column(c, width=self.ANCHOS[c], anchor="e" if c == "Total" else "w", stretch=(c in ("Cliente", "Motivo")))
+        barra = ttk.Scrollbar(marco, orient="vertical", command=tabla.yview)
+        tabla.configure(yscrollcommand=barra.set)
+        tabla.pack(side="left", fill="both", expand=True)
+        barra.pack(side="right", fill="y")
+        return tabla
+
+    # --- DATOS DEL EXCEL ---
+
+    def set_documentos(self, docs):
+        self.docs = docs
+        clientes = sorted(c for c in docs['Cliente'].unique() if c)
+        self.combo_cliente['values'] = clientes
+        self.combo_tipo['values'] = [""] + sorted(t for t in docs['Tipo'].unique() if t)
+        self.btn_buscar.config(state="normal")
+        self.tabla.delete(*self.tabla.get_children())
+        self.lbl_estado.config(text=f"Excel cargado: {len(docs)} comprobantes de {len(clientes)} clientes. Buscá para listar.")
+
+    def limpiar_filtros(self):
+        for v in (self.var_cliente, self.var_punto, self.var_numero, self.var_tipo):
+            v.set("")
+        self.tabla.delete(*self.tabla.get_children())
+
+    def buscar(self):
+        if self.docs is None:
+            return
+        if not any(v.get().strip() for v in (self.var_cliente, self.var_punto, self.var_numero, self.var_tipo)):
+            self.lbl_estado.config(text="Completá al menos un filtro (cliente, punto, número o tipo).")
+            return
+        res = core.buscar_documentos(self.docs, self.var_cliente.get(), self.var_punto.get(), self.var_numero.get(), self.var_tipo.get())
+        res = res[~res['Clave'].isin(set(self.exclusiones['Clave']))]
+        self.tabla.delete(*self.tabla.get_children())
+        filas = core.filas_a_exclusiones(res)
+        for _, r in filas.iterrows():
+            self.tabla.insert("", "end", iid=r['Clave'], values=self._valores_fila(r, self.COLS_RESULTADO))
+        self.lbl_estado.config(text=f"{len(filas)} comprobantes encontrados (sin contar los ya excluidos).")
+
+    @staticmethod
+    def _valores_fila(r, columnas):
+        out = []
+        for c in columnas:
+            v = r[c]
+            if c == "Total":
+                try:
+                    v = f"{float(v):,.2f}"
+                except (TypeError, ValueError):
+                    pass
+            out.append(v)
+        return out
+
+    # --- EXCLUIR / RESTAURAR ---
+
+    def excluir(self, solo_seleccion):
+        claves = list(self.tabla.selection()) if solo_seleccion else list(self.tabla.get_children())
+        if not claves:
+            messagebox.showinfo("Excluir facturas", "No hay comprobantes seleccionados.")
+            return
+        motivo = simpledialog.askstring("Motivo", f"Motivo de la exclusión ({len(claves)} comprobantes, opcional):", parent=self)
+        if motivo is None:
+            return
+        nuevas = core.filas_a_exclusiones(self.docs[self.docs['Clave'].isin(claves)], motivo.strip())
+        nuevas = nuevas[~nuevas['Clave'].isin(set(self.exclusiones['Clave']))]
+        self.exclusiones = pd.concat([self.exclusiones, nuevas], ignore_index=True)
+        core.guardar_exclusiones(self.exclusiones, self.archivo_exclusiones)
+        for clave in claves:
+            self.tabla.delete(clave)
+        self.refrescar_excluidas()
+        self.lbl_estado.config(text=f"{len(nuevas)} comprobantes excluidos. Se aplican al generar el reporte.")
+
+    def restaurar(self):
+        claves = list(self.tabla_ex.selection())
+        if not claves:
+            messagebox.showinfo("Restaurar", "Seleccioná en la lista de excluidas las facturas a restaurar.")
+            return
+        if not messagebox.askyesno("Restaurar", f"¿Volver a incluir {len(claves)} comprobantes en el reporte?"):
+            return
+        self.exclusiones = self.exclusiones[~self.exclusiones['Clave'].isin(claves)].reset_index(drop=True)
+        core.guardar_exclusiones(self.exclusiones, self.archivo_exclusiones)
+        self.refrescar_excluidas()
+
+    def refrescar_excluidas(self):
+        filtro = self.var_filtro_ex.get().strip().lower()
+        self.tabla_ex.delete(*self.tabla_ex.get_children())
+        for _, r in self.exclusiones.iterrows():
+            if filtro and filtro not in f"{r['Cliente']} {r['Documento']} {r['Motivo']} {r['Sucursal']}".lower():
+                continue
+            self.tabla_ex.insert("", "end", iid=r['Clave'], values=self._valores_fila(r, self.COLS_EXCLUIDAS))
+        self.lbl_cant_excluidas.config(text=f"({len(self.exclusiones)} en total)")
+
+
 class TabReporte(ttk.Frame):
-    def __init__(self, master, tab_reglas: TabReglas):
+    def __init__(self, master, tab_reglas: TabReglas, tab_exclusiones: TabExclusiones):
         super().__init__(master)
         self.tab_reglas = tab_reglas
+        self.tab_exclusiones = tab_exclusiones
         self.ruta_excel = None
 
         ttk.Label(self, text="Generador de Reportes Ejecutivos", font=("Segoe UI", 14, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
@@ -323,16 +490,18 @@ class TabReporte(ttk.Frame):
 
     def _detectar_en_hilo(self, ruta):
         try:
-            valores = core.detectar_valores(ruta)
+            docs = core.leer_erp(ruta)  # una sola lectura: sirve para las reglas y para excluir facturas
+            valores = core.detectar_valores(docs)
         except Exception as e:
             # `e` deja de existir al salir del except: el lambda corre después, así que se copia el texto.
             msg = f"No se pudieron autodetectar valores: {e}"
             self.after(0, lambda: self.lbl_deteccion.config(text=msg))
             return
-        self.after(0, lambda: self._aplicar_deteccion(valores))
+        self.after(0, lambda: self._aplicar_deteccion(valores, docs))
 
-    def _aplicar_deteccion(self, valores):
+    def _aplicar_deteccion(self, valores, docs):
         self.tab_reglas.set_valores_detectados(valores)
+        self.tab_exclusiones.set_documentos(docs)
         resumen = ", ".join(f"{k}: {len(v)}" for k, v in valores.items())
         self.lbl_deteccion.config(text=f"Autocompletado listo ({resumen})")
 
@@ -351,7 +520,8 @@ class TabReporte(ttk.Frame):
     def _generar_en_hilo(self, df_reglas):
         try:
             wb, nombre_sugerido, acumulado = core.generar_reporte(
-                self.ruta_excel, df_reglas, archivo_acumulado=ARCHIVO_ACUMULADO, log=self.log
+                self.ruta_excel, df_reglas, archivo_acumulado=ARCHIVO_ACUMULADO, log=self.log,
+                archivo_exclusiones=ARCHIVO_EXCLUSIONES
             )
             self.after(0, lambda: self._guardar_resultado(wb, nombre_sugerido, acumulado))
         except Exception as e:
@@ -423,10 +593,12 @@ def main():
     notebook.pack(fill="both", expand=True)
 
     tab_reglas = TabReglas(notebook, DATOS_DIR, ARCHIVO_REGLAS_LEGACY)
-    tab_reporte = TabReporte(notebook, tab_reglas)
+    tab_exclusiones = TabExclusiones(notebook, ARCHIVO_EXCLUSIONES)
+    tab_reporte = TabReporte(notebook, tab_reglas, tab_exclusiones)
 
     notebook.add(tab_reporte, text="Ejecutar Reporte")
     notebook.add(tab_reglas, text="Reglas y Razones Sociales")
+    notebook.add(tab_exclusiones, text="Excluir facturas")
 
     root.mainloop()
 

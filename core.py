@@ -25,6 +25,86 @@ COLUMNAS_CSV_REGLAS = [
     'Asignar a Sucursal', 'Asignar a Razón Social'
 ]
 
+# El export "Resumido" del ERP intercala dos tipos de fila y cada columna tiene dos sentidos:
+#   - fila de CLIENTE (sin Sucursal): razón social del cliente, CUIT, código, dirección, localidad;
+#   - filas de COMPROBANTE debajo: "Razon Social" = empresa - división, "Código" = fecha,
+#     "Dirección" = tipo (FCV/NCV/NDV), "Localidad" = número de documento (letra + punto - número).
+COL_FECHA_ERP = 'Código Fecha Documento'
+COL_TIPO_ERP = 'Dirección Tipo'
+COL_DOCUMENTO_ERP = 'Localidad Documento'
+COL_CUIT_ERP = 'CUIT'
+
+COLUMNAS_EXCLUIDAS = ['Clave', 'Tipo', 'Documento', 'Fecha', 'Cliente', 'Sucursal', 'Total', 'Motivo', 'Excluida el']
+
+
+def leer_erp(ruta_excel):
+    """Lee el Excel del ERP y devuelve solo las filas de comprobante, con el cliente (razón social y
+    CUIT de la fila de cliente anterior) copiado a cada una y el documento desarmado en
+    Tipo, Documento, Letra, Punto y Número. 'Clave' identifica la factura (tipo + número)."""
+    df = pd.read_excel(ruta_excel, sheet_name='Sheet2', header=1)
+    df.columns = df.columns.str.strip().str.replace('\n', ' ')
+    for col in (COL_TIPO_ERP, COL_DOCUMENTO_ERP, COL_CUIT_ERP):
+        if col not in df.columns:
+            df[col] = ''
+    es_cliente = df['Sucursal'].isna()
+    df['Cliente'] = df[COL_RAZON_SOCIAL_ERP].where(es_cliente).astype('string').str.strip().ffill().fillna('')
+    df['CUIT Cliente'] = df[COL_CUIT_ERP].where(es_cliente).ffill()
+    df['CUIT Cliente'] = pd.to_numeric(df['CUIT Cliente'], errors='coerce').astype('Int64').astype(str).replace('<NA>', '')
+    df = df.loc[~es_cliente].copy()
+    df['Tipo'] = df[COL_TIPO_ERP].fillna('').astype(str).str.strip()
+    df['Documento'] = df[COL_DOCUMENTO_ERP].fillna('').astype(str).str.strip()
+    partes = df['Documento'].str.extract(r'^([A-Za-z]*)(\d+)-(\d+)$')
+    df['Letra'] = partes[0].fillna('').str.upper()
+    df['Punto'] = partes[1].fillna('')
+    df['Número'] = partes[2].fillna('')
+    df['Clave'] = df['Tipo'] + '|' + df['Documento']
+    return df
+
+
+def buscar_documentos(docs, cliente='', punto='', numero='', tipo=''):
+    """Filtra las filas de comprobante: cliente 'contiene' (sin mayúsculas), punto y número por
+    valor numérico (00005 == 5), tipo exacto. Campos vacíos no filtran."""
+    mask = pd.Series(True, index=docs.index)
+    if cliente.strip():
+        mask &= docs['Cliente'].str.contains(cliente.strip(), case=False, regex=False)
+    if punto.strip():
+        mask &= docs['Punto'].str.lstrip('0') == punto.strip().lstrip('0')
+    if numero.strip():
+        mask &= docs['Número'].str.lstrip('0') == numero.strip().lstrip('0')
+    if tipo.strip():
+        mask &= docs['Tipo'] == tipo.strip()
+    return docs.loc[mask]
+
+
+def cargar_exclusiones(archivo_exclusiones):
+    if archivo_exclusiones and os.path.exists(archivo_exclusiones):
+        df = pd.read_csv(archivo_exclusiones, dtype=str).fillna('')
+        for col in COLUMNAS_EXCLUIDAS:
+            if col not in df.columns:
+                df[col] = ''
+        return df[COLUMNAS_EXCLUIDAS]
+    return pd.DataFrame(columns=COLUMNAS_EXCLUIDAS)
+
+
+def guardar_exclusiones(df_exclusiones, archivo_exclusiones):
+    df_exclusiones[COLUMNAS_EXCLUIDAS].to_csv(archivo_exclusiones, index=False)
+
+
+def filas_a_exclusiones(docs, motivo=''):
+    """Convierte filas de comprobante (de leer_erp) en filas para el CSV de exclusiones."""
+    fechas = pd.to_datetime(docs[COL_FECHA_ERP], errors='coerce').dt.strftime('%Y-%m-%d').fillna('')
+    return pd.DataFrame({
+        'Clave': docs['Clave'].values,
+        'Tipo': docs['Tipo'].values,
+        'Documento': docs['Documento'].values,
+        'Fecha': fechas.values,
+        'Cliente': docs['Cliente'].values,
+        'Sucursal': docs['Sucursal'].astype(str).values,
+        'Total': pd.to_numeric(docs[COL_TOTAL], errors='coerce').fillna(0).round(2).astype(str).values,
+        'Motivo': motivo,
+        'Excluida el': pd.Timestamp.now().strftime('%Y-%m-%d'),
+    }, columns=COLUMNAS_EXCLUIDAS)
+
 
 def formatear_mes_es(fecha_str):
     if pd.isna(fecha_str) or str(fecha_str).lower() == 'nat':
@@ -129,11 +209,10 @@ def nombre_perfil_valido(nombre):
     return nombre.split('.')[0].upper() not in _NOMBRES_RESERVADOS_WINDOWS
 
 
-def detectar_valores(ruta_excel):
-    """Lee el Excel del ERP y devuelve los valores únicos por columna, para autocompletar las reglas."""
-    df = pd.read_excel(ruta_excel, sheet_name='Sheet2', header=1)
-    df.columns = df.columns.str.strip().str.replace('\n', ' ')
-    df = df.dropna(subset=['Sucursal']).copy()
+def detectar_valores(ruta_o_docs):
+    """Devuelve los valores únicos por columna, para autocompletar las reglas. Acepta la ruta del
+    Excel o el DataFrame de comprobantes que devuelve leer_erp() (para no leer el archivo dos veces)."""
+    df = ruta_o_docs if isinstance(ruta_o_docs, pd.DataFrame) else leer_erp(ruta_o_docs)
 
     valores = {}
     for col in COLUMNAS_REGLA:
@@ -171,15 +250,23 @@ def celda_segura(v):
     return v
 
 
-def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.csv", log=print):
+def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.csv", log=print,
+                    archivo_exclusiones=None):
     """Procesa el Excel del ERP, lo suma al histórico acumulado y devuelve
     (workbook, nombre_archivo_sugerido, acumulado) con TODOS los meses acumulados hasta la fecha
-    (no solo los del archivo recién subido). No escribe el histórico: ver guardar_acumulado()."""
+    (no solo los del archivo recién subido). No escribe el histórico: ver guardar_acumulado().
+    Las facturas listadas en archivo_exclusiones (ver cargar_exclusiones) se descartan antes de
+    las reglas y quedan detalladas en una hoja "Excluidas" del reporte."""
 
     # LECTURA Y FILTRADO INICIAL
-    df = pd.read_excel(ruta_excel, sheet_name='Sheet2', header=1)
-    df.columns = df.columns.str.strip().str.replace('\n', ' ')
-    df = df.dropna(subset=['Sucursal']).copy()
+    df = leer_erp(ruta_excel)
+
+    # FACTURAS EXCLUIDAS A MANO (pestaña "Excluir facturas")
+    exclusiones = cargar_exclusiones(archivo_exclusiones)
+    if len(exclusiones):
+        excluida = df['Clave'].isin(set(exclusiones['Clave']))
+        df = df.loc[~excluida].copy()
+        log(f"Facturas excluidas a mano: {int(excluida.sum())} de las {len(exclusiones)} registradas aparecen en este Excel.")
 
     for col in [COL_TOTAL, COL_SUBTOTAL, COL_IVA]:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -446,6 +533,28 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
         pie_emp.dataLabels.showPercent, pie_emp.dataLabels.showCatName = True, True
         pie_emp.width, pie_emp.height = 15, 12
         ws_mes.add_chart(pie_emp, "U3")
+
+    # HOJA "EXCLUIDAS": las facturas sacadas a mano cuyo mes está en el reporte, con su motivo.
+    if len(exclusiones):
+        mes_excl = pd.to_datetime(exclusiones['Fecha'], errors='coerce').dt.to_period('M').astype(str)
+        en_reporte = exclusiones.loc[mes_excl.isin(meses_ordenados)].sort_values(['Fecha', 'Documento'])
+        if len(en_reporte):
+            ws_ex = wb.create_sheet("Excluidas")
+            ws_ex.sheet_view.showGridLines = False
+            ws_ex.append(["FACTURAS EXCLUIDAS A MANO (no suman en el ranking)"])
+            ws_ex['A1'].font = Font(size=14, bold=True, color="1F4E78")
+            encabezados_ex = ['Tipo', 'Documento', 'Fecha', 'Cliente', 'Sucursal', 'Total', 'Motivo', 'Excluida el']
+            ws_ex.append(encabezados_ex)
+            for c_i in range(1, len(encabezados_ex) + 1):
+                c = ws_ex.cell(row=2, column=c_i)
+                c.font, c.fill = Font(color="FFFFFF", bold=True), PatternFill(start_color="0B3D59", end_color="0B3D59", fill_type="solid")
+            for _, r in en_reporte.iterrows():
+                total = pd.to_numeric(r['Total'], errors='coerce')
+                ws_ex.append([celda_segura(r['Tipo']), celda_segura(r['Documento']), r['Fecha'], celda_segura(r['Cliente']),
+                              celda_segura(r['Sucursal']), 0 if pd.isna(total) else float(total), celda_segura(r['Motivo']), r['Excluida el']])
+                ws_ex.cell(row=ws_ex.max_row, column=6).number_format = '#,##0.00'
+            for col_letra, ancho in zip('ABCDEFGH', (7, 18, 12, 40, 22, 16, 40, 12)):
+                ws_ex.column_dimensions[col_letra].width = ancho
 
     if len(meses_ordenados) == 1:
         nom_arch = f"Reporte_{formatear_mes_es(meses_ordenados[0]).replace(' ', '_')}.xlsx"
