@@ -222,6 +222,9 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
         COL_TOTAL: (COL_TOTAL, 'sum'),
         'Razón Social': ('Razón Social', moda),
     }).reset_index()[COLUMNAS_ACUMULADO]
+    if resumen_nuevo.empty:
+        raise ValueError("No quedaron ventas para el reporte: revisá las reglas (EXCLUIR), "
+                         "las fechas y la columna Sucursal del Excel.")
 
     if os.path.exists(archivo_acumulado):
         acumulado = pd.read_csv(archivo_acumulado, dtype={'Mes_Año': str})
@@ -341,7 +344,9 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
 
             ws_mes.cell(row=rn, column=2, value=r['Rank Actual']).alignment = C_AL
             ws_mes.cell(row=rn, column=3, value=r['Rank Anterior']).alignment = C_AL
-            ws_mes.cell(row=rn, column=4, value=celda_segura(str(r['Razón Social']).split()[0] if str(r['Razón Social']) != 'nan' else 'N/A')).alignment = C_AL
+            # Primera palabra de la razón social; 'N/A' si viene vacía o NaN (antes: IndexError).
+            palabras = str(r['Razón Social']).split() if str(r['Razón Social']) != 'nan' else []
+            ws_mes.cell(row=rn, column=4, value=celda_segura(palabras[0] if palabras else 'N/A')).alignment = C_AL
             ws_mes.cell(row=rn, column=5, value=celda_segura(r['Sucursal'])).alignment = L_AL
 
             for i, v in enumerate([r[COL_SUBTOTAL], r[COL_IVA], r[COL_TOTAL]]):
