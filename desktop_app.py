@@ -325,7 +325,9 @@ class TabReporte(ttk.Frame):
         try:
             valores = core.detectar_valores(ruta)
         except Exception as e:
-            self.after(0, lambda: self.lbl_deteccion.config(text=f"No se pudieron autodetectar valores: {e}"))
+            # `e` deja de existir al salir del except: el lambda corre después, así que se copia el texto.
+            msg = f"No se pudieron autodetectar valores: {e}"
+            self.after(0, lambda: self.lbl_deteccion.config(text=msg))
             return
         self.after(0, lambda: self._aplicar_deteccion(valores))
 
@@ -353,10 +355,11 @@ class TabReporte(ttk.Frame):
             self.after(0, lambda: self._guardar_resultado(wb, nombre_sugerido))
         except Exception as e:
             detalle = traceback.format_exc()
-            self.log(f"Error: {e}")
+            msg = str(e)  # `e` deja de existir al salir del except; el lambda corre después
+            self.log(f"Error: {msg}")
             self.log(detalle)
             self.after(0, self._finalizar)
-            self.after(0, lambda: messagebox.showerror("Error procesando el archivo", str(e)))
+            self.after(0, lambda: messagebox.showerror("Error procesando el archivo", msg))
 
     def _guardar_resultado(self, wb, nombre_sugerido):
         self._finalizar()
