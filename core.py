@@ -197,7 +197,8 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
             mask = df[col].astype(str).str.contains(texto, case=False, na=False, regex=False)
             if suc_ori:
                 mask &= (df['Sucursal'].astype(str).str.upper() == suc_ori.upper())
-            df.loc[mask, 'Sucursal'] = nueva_suc
+            if nueva_suc:
+                df.loc[mask, 'Sucursal'] = nueva_suc
             if nueva_rs:
                 df.loc[mask, 'Razón Social'] = nueva_rs
 
