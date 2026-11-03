@@ -3,6 +3,25 @@
 Formato: una entrada por versión publicada, la más nueva arriba. La versión es la de
 `installer/setup.iss` (`MyAppVersion`) y del tag de la release.
 
+## 1.2.0 - 2026-11-03
+
+### Nuevo
+- Pestaña **Excluir facturas**: buscá comprobantes del Excel cargado por cliente (razón social),
+  punto de venta, número o tipo (FCV, NCV, NDV) en campos separados; no lista nada hasta buscar.
+  Excluí las seleccionadas o todas las listadas, con motivo opcional. Lista de excluidas con
+  filtro y **Restaurar**.
+- Las exclusiones persisten en `%APPDATA%\RankingVentas\facturas_excluidas.csv` y se aplican en
+  cada reporte, aunque se vuelva a procesar el mismo mes. No dependen del perfil de reglas.
+- El reporte descarta esas facturas antes de las reglas, lo registra y agrega una hoja
+  **Excluidas** con el detalle y el motivo.
+- La app ahora entiende la estructura del export "Resumido" del ERP (fila de cliente + filas de
+  comprobante): cada comprobante sabe su cliente y CUIT, y su número se desarma en letra,
+  punto de venta y número (`Localidad Documento`); el tipo sale de `Dirección Tipo`.
+
+### Interno
+- `core.leer_erp()` lee el Excel una sola vez para las reglas y para excluir facturas;
+  `generar_reporte()` acepta `archivo_exclusiones`.
+
 ## 1.1.2 - 2026-11-03
 
 ### Nuevo

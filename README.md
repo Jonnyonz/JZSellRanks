@@ -84,6 +84,27 @@ Elegir el Excel, generar y elegir dónde guardar. El nombre sugerido es
 El reporte incluye **todos los meses del histórico**. Si el Excel nuevo trae un mes que ya
 estaba, ese mes se reemplaza por los datos nuevos. El botón de reinicio borra el histórico.
 
+### 3b. Excluir facturas (pestaña "Excluir facturas")
+
+Hay comprobantes que por distintos motivos no deben sumar en el ranking. Con el Excel ya elegido
+en la otra pestaña:
+
+- Buscá por **cliente** (razón social, "contiene"), **punto de venta**, **número** o **tipo**
+  (FCV factura, NCV nota de crédito, NDV nota de débito), en campos separados. No se lista nada
+  hasta que buscás.
+- Seleccioná los comprobantes y apretá **Excluir seleccionadas** (o **Excluir todas las
+  listadas**). Se pide un motivo opcional.
+- Las exclusiones quedan guardadas en `facturas_excluidas.csv` (ver "Configuración y datos") y se
+  aplican cada vez que generás el reporte, aunque vuelvas a procesar el mismo mes. No dependen
+  del perfil de reglas. Abajo está la lista de excluidas, con filtro y **Restaurar**.
+- El reporte descarta esas facturas antes de aplicar las reglas, lo dice en el registro y agrega
+  una hoja **Excluidas** con el detalle (tipo, documento, fecha, cliente, sucursal, total, motivo).
+
+Cómo identifica la app cada factura: el export "Resumido" del ERP intercala una fila de cliente
+(sin sucursal: razón social, CUIT, código) y debajo sus comprobantes, y cada columna tiene dos
+sentidos. En las filas de comprobante, `Dirección Tipo` trae el tipo y `Localidad Documento` el
+número (`A00005-00012345` = letra, punto de venta, número). La clave es `tipo|documento`.
+
 ### 4. Qué contiene el Excel generado
 
 - Hoja **Análisis**: tres gráficos de barras (total de la empresa, por razón social con línea
@@ -94,6 +115,7 @@ estaba, ese mes se reemplaza por los datos nuevos. El botón de reinicio borra e
   - **TOP POR EMPRESAS:** lo mismo agrupado por razón social.
   - Dos gráficos de torta (locales y razones sociales).
 - Una hoja oculta `Data_Oculta` con los datos de los gráficos.
+- Si hay facturas excluidas a mano en los meses del reporte, una hoja **Excluidas** con el detalle.
 
 ---
 
@@ -138,6 +160,7 @@ guardan en **`%APPDATA%\RankingVentas\`**, sin importar dónde esté instalado e
 |---|---|
 | `datos_acumulados.csv` | Histórico mensual por sucursal (lo que alimenta el reporte acumulado) |
 | `perfiles_reglas\<perfil>.csv` | Reglas de cada perfil. Columnas: `Sucursal Origen (Opcional)`, `Columna a Buscar`, `Contiene el Texto`, `Asignar a Sucursal`, `Asignar a Razón Social` |
+| `facturas_excluidas.csv` | Facturas excluidas a mano. Columnas: `Clave` (`tipo\|documento`), `Tipo`, `Documento`, `Fecha`, `Cliente`, `Sucursal`, `Total`, `Motivo`, `Excluida el` |
 
 En el primer uso se crea el perfil `Default` (a partir de un `reglas_parametrizacion.csv`
 viejo si lo encuentra junto al programa, o con reglas de ejemplo). Para hacer una copia de
