@@ -18,3 +18,6 @@ datos_acumulados.csv
 reglas_parametrizacion.csv
 graphify-out/
 .serena/
+
+# Entorno virtual local de desarrollo
+.venv/

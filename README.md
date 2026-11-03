@@ -53,7 +53,7 @@ El archivo exportado del ERP tiene que ser `.xlsx` con:
 | `Total Total` | Sí | Total. |
 | `Neto Gravado Neto Gravado` | Sí | Subtotal. |
 | `IVA IVA` | Sí | IVA. |
-| `Razon Social Empresa - Division` | Sí | Razón social (sin tilde en "Razon"). |
+| `Razon Social Empresa - Division` | Sí | Razón social (sin tilde en "Razon"). Para el reporte se le quita la división (" - Empresa" / " - Prueba"); en las reglas se busca sobre el valor completo. |
 | `Vendedor`, `Usuario Creador`, `Localidad Documento` | No | Solo para las reglas. |
 
 Los montos que no son números se toman como 0.
@@ -61,9 +61,14 @@ Los montos que no son números se toman como 0.
 ### 2. Las reglas (pestaña "Reglas y Razones Sociales")
 
 Cada regla dice: *si la columna X **contiene** el texto T (sin distinguir mayúsculas),
-opcionalmente solo cuando la sucursal actual es S, asignar la sucursal A y, si se indica, la
-razón social R*.
+opcionalmente solo cuando la sucursal actual es S, asignar la sucursal A (si se indica) y la
+razón social R (si se indica)*.
 
+- La columna X puede ser `Vendedor`, `Usuario Creador`, `Localidad Documento`, `Sucursal` o
+  `Razon Social Empresa - Division`. Esta última es la razón social tal como viene del ERP,
+  **con la división**: sirve para separar las ventas "Empresa" de las "Prueba" de una misma
+  sucursal (por ejemplo, *contiene "Prueba" → sucursal "CENTRO PRUEBA"*).
+- Si se deja vacío "Nueva Sucursal", la sucursal no cambia (solo se reasigna la razón social).
 - Se aplican **en orden**, de arriba hacia abajo: una regla ve el resultado de las anteriores.
 - Asignar la sucursal **`EXCLUIR`** (en mayúsculas) saca esas ventas del reporte.
 - Las reglas se guardan en **perfiles** (Nuevo, Guardar como, Eliminar). Siempre queda al
@@ -107,12 +112,15 @@ JZSellRanks/
 ├── desktop_app.py        # Interfaz Tkinter (pestañas de reporte y de reglas)
 ├── requirements.txt      # pandas y openpyxl, fijados
 ├── RankingVentas.spec    # Configuración de PyInstaller
-└── installer/setup.iss   # Script de Inno Setup
+├── installer/setup.iss   # Script de Inno Setup
+└── tests/test_core.py    # Pruebas de core con un Excel sintético
 ```
 
 `core.py` no depende de la interfaz: `generar_reporte(ruta_excel, reglas, archivo_acumulado,
-log)` devuelve el libro de Excel y el nombre sugerido. La interfaz corre la lectura y la
-generación en hilos para no congelar la ventana.
+log)` devuelve el libro de Excel, el nombre sugerido y el histórico actualizado (sin
+escribirlo); la interfaz guarda el Excel y recién entonces persiste el histórico con
+`guardar_acumulado()`. La interfaz corre la lectura y la generación en hilos para no congelar
+la ventana.
 
 **Seguridad del Excel de salida:** todo texto que viene del archivo de entrada y empieza con
 `=`, `+`, `-`, `@`, tabulación o salto de línea se guarda con un apóstrofo delante, para que
@@ -147,6 +155,12 @@ pip install -r requirements.txt
 python desktop_app.py
 ```
 
+Pruebas (no necesitan datos reales, arman un Excel sintético):
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
 ---
 
 ## Construir el ejecutable y el instalador
@@ -179,11 +193,9 @@ gh release create vX.Y.Z dist_installer\RankingVentas_Setup_X.Y.Z.exe --title "v
   fila 2, nombres de columna fijos). Si falta algo, el reporte falla.
 - Los reemplazos de algunas razones sociales y los nombres de columna están fijos en el código.
 - Cuando una sucursal vende con varias razones sociales en el mismo mes, todo su total se
-  atribuye a la más frecuente.
-- El histórico se actualiza al generar, aunque después se cancele el guardado del Excel.
-- Si ocurre un error durante la generación, el detalle queda en el registro de la pestaña pero
-  hoy no aparece el cuadro de aviso.
-- No hay tests automatizados.
+  atribuye a la más frecuente. Para separarlas, usar una regla sobre
+  `Razon Social Empresa - Division` que asigne otra sucursal.
+- Las pruebas cubren `core.py`; la interfaz Tkinter se prueba a mano.
 
 ---
 
