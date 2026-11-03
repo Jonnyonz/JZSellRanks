@@ -212,7 +212,9 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
     # Esto es lo que permite que, mes a mes, se le vaya sumando el mes nuevo sin perder los anteriores,
     # aunque el Excel que subís cada vez traiga solo los datos de ese mes.
     def moda(serie):
-        return serie.value_counts().index[0] if len(serie) > 0 else ''
+        # value_counts() ignora los vacíos (NaN): puede quedar vacío aunque la serie no lo esté.
+        conteo = serie.value_counts()
+        return conteo.index[0] if len(conteo) > 0 else ''
 
     resumen_nuevo = df.groupby(['Mes_Año', 'Mes_Format', 'Sucursal']).agg(**{
         COL_SUBTOTAL: (COL_SUBTOTAL, 'sum'),
