@@ -48,7 +48,7 @@ class FilaRegla(ttk.Frame):
             values=self.tab_reglas.valores_detectados.get('Sucursal', []))
         self.combo_origen.grid(row=0, column=0, padx=2, pady=1, sticky="ew")
 
-        ttk.Combobox(self, textvariable=self.var_columna, values=core.COLUMNAS_REGLA, width=16, state="readonly").grid(
+        ttk.Combobox(self, textvariable=self.var_columna, values=core.COLUMNAS_REGLA, width=28, state="readonly").grid(
             row=0, column=1, padx=2, pady=1, sticky="ew")
 
         self.combo_texto = ttk.Combobox(self, textvariable=self.var_texto, width=22)
@@ -109,7 +109,7 @@ class TabReglas(ttk.Frame):
         header = ttk.Frame(self)
         header.pack(fill="x", padx=10)
         titulos = ["Sucursal Origen", "Buscar en", "Texto Exacto", "Nueva Sucursal", "Nueva Razón Social", ""]
-        anchos = [16, 16, 22, 18, 18, 3]
+        anchos = [16, 28, 22, 18, 18, 3]
         for i, (t, a) in enumerate(zip(titulos, anchos)):
             ttk.Label(header, text=t, width=a, font=("Segoe UI", 9, "bold")).grid(row=0, column=i, padx=2)
 

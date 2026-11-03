@@ -15,7 +15,11 @@ COL_TOTAL = 'Total Total'
 COL_SUBTOTAL = 'Neto Gravado Neto Gravado'
 COL_IVA = 'IVA IVA'
 
-COLUMNAS_REGLA = ['Vendedor', 'Usuario Creador', 'Localidad Documento', 'Sucursal']
+# Columnas del Excel en las que puede buscar una regla. La razón social se busca sobre la columna
+# cruda del ERP (con la división " - Empresa" / " - Prueba"), así una regla puede distinguir
+# las dos divisiones de una misma sucursal (ej. contiene "Prueba").
+COL_RAZON_SOCIAL_ERP = 'Razon Social Empresa - Division'
+COLUMNAS_REGLA = ['Vendedor', 'Usuario Creador', 'Localidad Documento', 'Sucursal', COL_RAZON_SOCIAL_ERP]
 COLUMNAS_CSV_REGLAS = [
     'Sucursal Origen (Opcional)', 'Columna a Buscar', 'Contiene el Texto',
     'Asignar a Sucursal', 'Asignar a Razón Social'
@@ -128,8 +132,8 @@ def detectar_valores(ruta_excel):
         else:
             valores[col] = []
 
-    if 'Razon Social Empresa - Division' in df.columns:
-        rs = df['Razon Social Empresa - Division'].astype(str)
+    if COL_RAZON_SOCIAL_ERP in df.columns:
+        rs = df[COL_RAZON_SOCIAL_ERP].astype(str)
         rs = rs.str.replace(r'\s*-\s*Empresa', '', regex=True, case=False)
         rs = rs.str.replace(r'\s*-\s*Prueba', '', regex=True, case=False).str.strip()
         valores['Razón Social'] = sorted({v for v in rs.unique() if v and v.lower() != 'nan'})
@@ -177,7 +181,7 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
     df['Mes_Format'] = df['Mes_Año'].apply(formatear_mes_es)
 
     # LIMPIEZA INTELIGENTE DE RAZÓN SOCIAL
-    df['Razón Social'] = df['Razon Social Empresa - Division'].astype(str)
+    df['Razón Social'] = df[COL_RAZON_SOCIAL_ERP].astype(str)
     df['Razón Social'] = df['Razón Social'].str.replace(r'\s*-\s*Empresa', '', regex=True, case=False)
     df['Razón Social'] = df['Razón Social'].str.replace(r'\s*-\s*Prueba', '', regex=True, case=False)
     df['Razón Social'] = df['Razón Social'].str.strip()
