@@ -3,6 +3,20 @@
 Formato: una entrada por versión publicada, la más nueva arriba. La versión es la de
 `installer/setup.iss` (`MyAppVersion`) y del tag de la release.
 
+## 1.1.2 - 2026-11-03
+
+### Nuevo
+- Ícono propio (barras de ranking sobre azul) en la ventana, la barra de tareas, el `.exe`,
+  el instalador y el desinstalador. Se genera con `installer/hacer_icono.py` (solo biblioteca
+  estándar).
+
+### Arreglos
+- El botón dice "Generar reporte", sin el glifo.
+- Los nombres de perfil reservados de Windows (`CON`, `NUL`, `COM1`, `LPT1`..., con o sin
+  extensión) y los que terminan en punto o espacio se rechazan al crear o guardar un perfil.
+- El tema de la interfaz se aplica sin `except/pass`; docstrings sin referencias a la versión
+  web vieja.
+
 ## 1.1.1 - 2026-11-03
 
 ### Arreglos
