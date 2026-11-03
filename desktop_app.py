@@ -372,7 +372,19 @@ class TabReporte(ttk.Frame):
         if not ruta_salida:
             self.log("Guardado cancelado por el usuario. El histórico acumulado no se modificó.")
             return
-        wb.save(ruta_salida)
+        try:
+            wb.save(ruta_salida)
+        except OSError as e:
+            # Típico: el archivo está abierto en Excel (PermissionError). El exe no tiene consola,
+            # así que sin este aviso el usuario no se enteraba de nada.
+            self.log(f"No se pudo guardar el reporte: {e}")
+            messagebox.showerror(
+                "No se pudo guardar",
+                f"No se pudo escribir el archivo:\n{ruta_salida}\n\n"
+                "Si está abierto en Excel, cerralo y volvé a generar el reporte.\n"
+                "El histórico acumulado no se modificó."
+            )
+            return
         core.guardar_acumulado(acumulado, ARCHIVO_ACUMULADO)
         self.log(f"Reporte guardado en: {ruta_salida}")
         messagebox.showinfo("Listo", f"Reporte generado correctamente:\n{ruta_salida}")
