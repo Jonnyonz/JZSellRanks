@@ -158,8 +158,9 @@ def celda_segura(v):
 
 
 def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.csv", log=print):
-    """Procesa el Excel del ERP, lo suma al histórico acumulado, y devuelve (workbook, nombre_archivo_sugerido)
-    con TODOS los meses acumulados hasta la fecha (no solo los del archivo recién subido)."""
+    """Procesa el Excel del ERP, lo suma al histórico acumulado y devuelve
+    (workbook, nombre_archivo_sugerido, acumulado) con TODOS los meses acumulados hasta la fecha
+    (no solo los del archivo recién subido). No escribe el histórico: ver guardar_acumulado()."""
 
     # LECTURA Y FILTRADO INICIAL
     df = pd.read_excel(ruta_excel, sheet_name='Sheet2', header=1)
@@ -227,7 +228,8 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
     meses_nuevos = resumen_nuevo['Mes_Año'].unique()
     acumulado = acumulado[~acumulado['Mes_Año'].isin(meses_nuevos)]
     acumulado = pd.concat([acumulado, resumen_nuevo], ignore_index=True)
-    acumulado.to_csv(archivo_acumulado, index=False)
+    # El histórico NO se escribe acá: se devuelve y la interfaz lo guarda con guardar_acumulado()
+    # recién cuando el Excel quedó guardado. Si falla o el usuario cancela, el CSV queda como estaba.
 
     log(f"Histórico acumulado: {acumulado['Mes_Año'].nunique()} mes(es) en total. Generando Excel...")
 
@@ -423,4 +425,9 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
     else:
         nom_arch = f"Reporte_Acumulado_{formatear_mes_es(meses_ordenados[0]).replace(' ', '_')}_a_{formatear_mes_es(meses_ordenados[-1]).replace(' ', '_')}.xlsx"
 
-    return wb, nom_arch
+    return wb, nom_arch, acumulado
+
+
+def guardar_acumulado(acumulado, archivo_acumulado):
+    """Persiste el histórico devuelto por generar_reporte(). Llamar solo después de guardar el Excel."""
+    acumulado.to_csv(archivo_acumulado, index=False)

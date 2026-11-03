@@ -349,10 +349,10 @@ class TabReporte(ttk.Frame):
     def _generar_en_hilo(self):
         try:
             df_reglas = self.tab_reglas.obtener_dataframe()
-            wb, nombre_sugerido = core.generar_reporte(
+            wb, nombre_sugerido, acumulado = core.generar_reporte(
                 self.ruta_excel, df_reglas, archivo_acumulado=ARCHIVO_ACUMULADO, log=self.log
             )
-            self.after(0, lambda: self._guardar_resultado(wb, nombre_sugerido))
+            self.after(0, lambda: self._guardar_resultado(wb, nombre_sugerido, acumulado))
         except Exception as e:
             detalle = traceback.format_exc()
             msg = str(e)  # `e` deja de existir al salir del except; el lambda corre después
@@ -361,7 +361,7 @@ class TabReporte(ttk.Frame):
             self.after(0, self._finalizar)
             self.after(0, lambda: messagebox.showerror("Error procesando el archivo", msg))
 
-    def _guardar_resultado(self, wb, nombre_sugerido):
+    def _guardar_resultado(self, wb, nombre_sugerido, acumulado):
         self._finalizar()
         ruta_salida = filedialog.asksaveasfilename(
             title="Guardar reporte como",
@@ -369,12 +369,13 @@ class TabReporte(ttk.Frame):
             defaultextension=".xlsx",
             filetypes=[("Archivo Excel", "*.xlsx")]
         )
-        if ruta_salida:
-            wb.save(ruta_salida)
-            self.log(f"Reporte guardado en: {ruta_salida}")
-            messagebox.showinfo("Listo", f"Reporte generado correctamente:\n{ruta_salida}")
-        else:
-            self.log("Guardado cancelado por el usuario.")
+        if not ruta_salida:
+            self.log("Guardado cancelado por el usuario. El histórico acumulado no se modificó.")
+            return
+        wb.save(ruta_salida)
+        core.guardar_acumulado(acumulado, ARCHIVO_ACUMULADO)
+        self.log(f"Reporte guardado en: {ruta_salida}")
+        messagebox.showinfo("Listo", f"Reporte generado correctamente:\n{ruta_salida}")
 
     def _finalizar(self):
         self.progreso.stop()
