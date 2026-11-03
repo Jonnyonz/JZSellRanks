@@ -39,12 +39,14 @@ def formatear_mes_es(fecha_str):
 
 
 def reglas_por_defecto():
+    """Reglas de ejemplo para el primer uso (sin datos reales). Muestran los tres casos típicos
+    y los textos no coinciden con nada real, así no cambian el reporte hasta que se editan."""
     return pd.DataFrame({
-        'Sucursal Origen (Opcional)': ['PAVON', 'PAVON', 'PAVON', 'PAVON', 'PAVON', ''],
-        'Columna a Buscar': ['Vendedor', 'Usuario Creador', 'Localidad Documento', 'Usuario Creador', 'Localidad Documento', 'Usuario Creador'],
-        'Contiene el Texto': ['Victor Bascuñan', 'Caniuqueo Veronica', '00014-', 'Roman Ayrton', '00020-', 'Aguilar Mónica'],
-        'Asignar a Sucursal': ['Geo Mayorista', 'Dunia Mayorista', 'Mercado Libre', 'Mercado Libre', 'Mercado Libre', 'EXCLUIR'],
-        'Asignar a Razón Social': ['Mnos Import SRL', 'Dunia Import SRL', 'Bekir 1 SRL', 'Bekir 1 SRL', 'Bekir 1 SRL', '']
+        'Sucursal Origen (Opcional)': ['SUCURSAL EJEMPLO', '', ''],
+        'Columna a Buscar': ['Vendedor', COL_RAZON_SOCIAL_ERP, 'Usuario Creador'],
+        'Contiene el Texto': ['Vendedor Ejemplo', 'Razón Social Ejemplo - Prueba', 'usuario.ejemplo'],
+        'Asignar a Sucursal': ['Mercado Libre', 'SUCURSAL EJEMPLO PRUEBA', 'EXCLUIR'],
+        'Asignar a Razón Social': ['Razón Social Ejemplo SRL', '', '']
     })
 
 
