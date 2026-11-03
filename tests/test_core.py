@@ -102,6 +102,19 @@ class TestCore(unittest.TestCase):
         self.assertIn("'+CMD|calc", celdas)
         self.assertNotIn('+CMD|calc', celdas)
 
+    def test_sucursal_con_el_mismo_nombre_que_una_razon_social(self):
+        # Antes el join de los datos de gráficos fallaba por columnas repetidas.
+        filas = [fila('Alfa SRL', 'Alfa SRL - Empresa'), fila('CENTRO', 'Alfa SRL - Empresa')]
+        wb, _, acumulado = self.generar(filas)
+        self.assertEqual(len(acumulado), 2)
+        encabezados = [c.value for c in wb['Data_Oculta'][1]]
+        self.assertEqual(len(encabezados), len(set(encabezados)), 'encabezados repetidos en Data_Oculta')
+
+    def test_reglas_por_defecto_son_inertes(self):
+        _, _, acumulado = self.generar([fila('CENTRO', 'Alfa SRL - Prueba')], core.reglas_por_defecto())
+        self.assertEqual(acumulado['Sucursal'].tolist(), ['CENTRO'])
+        self.assertEqual(acumulado['Razón Social'].tolist(), ['Alfa SRL'])
+
     def test_todo_excluido_avisa_en_vez_de_reventar(self):
         df_reglas = reglas(['', 'Vendedor', 'Vendedor A', 'EXCLUIR', ''])
         with self.assertRaises(ValueError):

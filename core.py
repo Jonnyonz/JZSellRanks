@@ -258,7 +258,12 @@ def generar_reporte(ruta_excel, df_reglas, archivo_acumulado="datos_acumulados.c
     df_rs_mes = acumulado.groupby(['Mes_Format', 'Razón Social'])[COL_TOTAL].sum().unstack().fillna(0)
     df_loc_mes = acumulado.groupby(['Mes_Format', 'Sucursal'])[COL_TOTAL].sum().unstack().fillna(0)
 
-    df_charts = df_tot_mes.set_index('Mes_Format').drop(columns=['Mes_Año']).join(df_rs_mes).join(df_loc_mes).reset_index()
+    # Los sufijos evitan que join() falle si una sucursal se llama igual que una razón social
+    # (o que "Total Empresa"). Los gráficos usan posiciones de columna, no nombres.
+    df_charts = (df_tot_mes.set_index('Mes_Format').drop(columns=['Mes_Año'])
+                 .join(df_rs_mes, rsuffix=' (razón social)')
+                 .join(df_loc_mes, rsuffix=' (sucursal)')
+                 .reset_index())
     ws_data.append([celda_segura(x) for x in df_charts.columns.tolist()])
     for _, r in df_charts.iterrows():
         ws_data.append([celda_segura(x) for x in r.tolist()])
