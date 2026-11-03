@@ -409,6 +409,10 @@ def main():
     root = tk.Tk()
     root.title("Ranking de Ventas")
     root.geometry("950x680")
+    # Ícono de la ventana y la barra de tareas. En el exe de PyInstaller va dentro de _MEIPASS.
+    ruta_icono = os.path.join(getattr(sys, '_MEIPASS', BASE_DIR), 'installer', 'icono.png')
+    if os.path.exists(ruta_icono):
+        root.iconphoto(True, tk.PhotoImage(file=ruta_icono))
 
     # Tema nativo de Windows si existe; en otros sistemas queda el tema por defecto de ttk.
     style = ttk.Style()

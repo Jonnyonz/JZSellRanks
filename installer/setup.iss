@@ -24,6 +24,7 @@ SolidCompression=yes
 WizardStyle=modern
 LicenseFile=..\LICENSE
 UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile=icono.ico
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]

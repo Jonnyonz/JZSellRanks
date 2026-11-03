@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = []
+datas = [('installer/icono.png', 'installer')]  # ícono de la ventana (desktop_app.main)
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('numpy')
@@ -43,4 +43,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='installer/icono.ico',
 )
