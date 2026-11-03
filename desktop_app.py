@@ -291,7 +291,7 @@ class TabReporte(ttk.Frame):
         self.lbl_deteccion = ttk.Label(self, text="")
         self.lbl_deteccion.pack(anchor="w", padx=10)
 
-        self.btn_generar = ttk.Button(self, text="▶ Generar Reporte", command=self.generar, state="disabled")
+        self.btn_generar = ttk.Button(self, text="Generar reporte", command=self.generar, state="disabled")
         self.btn_generar.pack(anchor="w", padx=10, pady=6)
 
         self.progreso = ttk.Progressbar(self, mode="indeterminate")
